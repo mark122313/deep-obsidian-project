@@ -337,12 +337,12 @@ export default function Index() {
                 style={{ background: "rgba(255,255,255,0.02)" }}>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-6">
-                    <div className="font-mono-ibm text-xs w-24 shrink-0" style={{ color: "var(--neon)" }}>
+                    <div className="font-mono-ibm text-xs w-24 shrink-0" style={{ color: "var(--neon)", filter: "blur(5px)", userSelect: "none" }}>
                       {ev.dateLabel}
                     </div>
                     <div>
-                      <div className="font-oswald text-white text-xl font-bold">{ev.city}</div>
-                      <div className="font-mono-ibm text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>{ev.venue}</div>
+                      <div className="font-oswald text-white text-xl font-bold" style={{ filter: "blur(6px)", userSelect: "none" }}>{ev.city}</div>
+                      <div className="font-mono-ibm text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)", filter: "blur(4px)", userSelect: "none" }}>{ev.venue}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 flex-wrap">
