@@ -85,7 +85,18 @@ def handler(event: dict, context) -> dict:
             lines.append(f'💰 <b>Итого: {total:,.0f} ₽</b>'.replace(',', ' '))
             if comment: lines.append(f'💬 {comment}')
             text = '\n'.join(lines)
-            payload = json.dumps({'chat_id': tg_chat, 'text': text, 'parse_mode': 'HTML'}).encode()
+            reply_markup = {
+                'inline_keyboard': [[
+                    {'text': '✅ Принять', 'callback_data': f'accept_{order_id}'},
+                    {'text': '❌ Отказать', 'callback_data': f'decline_{order_id}'}
+                ]]
+            }
+            payload = json.dumps({
+                'chat_id': tg_chat,
+                'text': text,
+                'parse_mode': 'HTML',
+                'reply_markup': reply_markup
+            }).encode()
             req = urllib.request.Request(
                 f'https://api.telegram.org/bot{tg_token}/sendMessage',
                 data=payload,

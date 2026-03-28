@@ -1,4 +1,5 @@
 {
+  "tg-webhook": "https://functions.poehali.dev/283b3adc-8ee4-4a82-b716-77f94633eb63",
   "shop-cart": "https://functions.poehali.dev/7dae185f-2a70-431e-bf49-77a9ea1567b2",
   "shop-order": "https://functions.poehali.dev/418e4ecb-1178-4a0c-a292-adfe705e5f52",
   "shop-products": "https://functions.poehali.dev/fb6908c1-60d1-469c-b7b9-bd4b5be6dcd2"
