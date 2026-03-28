@@ -11,7 +11,7 @@ MERCH_MAP = {
     104: (4, 'DISORDER PACK'),
 }
 
-ALLOWED_USERNAME = 'flaskiy'
+ALLOWED_USERNAME = 'flaskiy' 'fuckgenaa'
 
 MERCH_LIST = '\n'.join([f'  /stock {code} N — {name}' for code, (_, name) in MERCH_MAP.items()])
 HELP_TEXT = (
