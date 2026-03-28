@@ -108,12 +108,20 @@ export default function ShopSection({ cartOpen, setCartOpen, setCartCount }: Sho
                 const isAdded = addedId === item.id;
                 const inCart = cartItems.some(c => c.product_id === item.id);
                 return (
-                  <div key={item.id} className="merch-card relative p-6 flex flex-col justify-between"
+                  <div key={item.id} className="merch-card relative flex flex-col justify-between overflow-hidden"
                     style={{
                       border: "1px solid rgba(255,255,255,0.06)",
                       minHeight: 180,
                       background: i % 2 === 0 ? "rgba(15,15,18,1)" : "rgba(10,10,12,1)"
                     }}>
+                    {item.image_url && (
+                      <div className="w-full overflow-hidden" style={{ aspectRatio: "1", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                        <img src={item.image_url} alt={item.name}
+                          className="w-full h-full object-cover img-hover-glitch"
+                          style={{ filter: "grayscale(15%) contrast(1.1)", opacity: outOfStock ? 0.4 : 1 }} />
+                      </div>
+                    )}
+                    <div className="p-6 flex flex-col flex-1 justify-between">
                     <div className="flex flex-wrap gap-2 mb-3">
                       {item.tag && (
                         <span className="inline-block px-2 py-1 font-mono-ibm self-start"
@@ -146,6 +154,7 @@ export default function ShopSection({ cartOpen, setCartOpen, setCartCount }: Sho
                       style={{ padding: "8px 20px", fontSize: "0.65rem", opacity: outOfStock ? 0.35 : 1, background: isAdded ? "var(--neon)" : "", color: isAdded ? "#000" : "" }}>
                       <span>{isAdded ? "✓ Добавлено" : inCart ? "Ещё раз" : "В корзину"}</span>
                     </button>
+                    </div>
                   </div>
                 );
               })}

@@ -1,0 +1,3 @@
+UPDATE t_p85200160_deep_obsidian_projec.products SET image_url = 'https://cdn.poehali.dev/projects/a00ce720-a256-43b5-bf17-65d283f28886/files/2d0a7b8b-199e-42ed-9e49-7dcb17a112a4.jpg' WHERE id = 1;
+UPDATE t_p85200160_deep_obsidian_projec.products SET image_url = 'https://cdn.poehali.dev/projects/a00ce720-a256-43b5-bf17-65d283f28886/files/ca3dfd13-52be-41b4-8069-39b2e3dd262d.jpg' WHERE id = 2;
+UPDATE t_p85200160_deep_obsidian_projec.products SET image_url = 'https://cdn.poehali.dev/projects/a00ce720-a256-43b5-bf17-65d283f28886/files/aad4e239-b813-4662-b9a0-dc4d6236896a.jpg' WHERE id = 4;
