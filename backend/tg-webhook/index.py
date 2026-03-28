@@ -68,13 +68,25 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
 
-            status_line = '\n\n✅ <b>ПРИНЯТ</b>' if is_accept else '\n\n❌ <b>ОТКАЗАНО</b>'
-            tg_api(token, 'editMessageText', {
-                'chat_id': chat_id,
-                'message_id': message_id,
-                'text': original_text + status_line,
-                'parse_mode': 'HTML'
-            })
+            status_line = '\n\n✅ ПРИНЯТ' if is_accept else '\n\n❌ ОТКАЗАНО'
+            is_photo = bool(message.get('photo'))
+
+            if is_photo:
+                # Сообщение с фото — редактируем подпись
+                caption = (message.get('caption') or '') + status_line
+                tg_api(token, 'editMessageCaption', {
+                    'chat_id': chat_id,
+                    'message_id': message_id,
+                    'caption': caption,
+                })
+            else:
+                # Текстовое сообщение — редактируем текст
+                tg_api(token, 'editMessageText', {
+                    'chat_id': chat_id,
+                    'message_id': message_id,
+                    'text': original_text + status_line,
+                })
+
             tg_api(token, 'answerCallbackQuery', {
                 'callback_query_id': callback_id,
                 'text': 'Принято ✅' if is_accept else 'Отказано ❌'
