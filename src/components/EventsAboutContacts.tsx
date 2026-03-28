@@ -434,7 +434,7 @@ export default function EventsAboutContacts() {
           className="font-mono-ibm text-xs"
           style={{ color: "rgba(255,255,255,0.18)", letterSpacing: "0.15em" }}
         >
-          © 2026 — ВСЕ ПРАВА ЗАЩИЩЕНЫ ИНН 100605013294
+          © 2026 — ВСЕ ПРАВА ЗАЩИЩЕНЫ
         </div>
         <div
           className="font-mono-ibm text-xs neon-text"
