@@ -6,11 +6,11 @@ const CONCERT_IMG = "https://cdn.poehali.dev/projects/a00ce720-a256-43b5-bf17-65
 const MERCH_IMG = "https://cdn.poehali.dev/projects/a00ce720-a256-43b5-bf17-65d283f28886/files/40ce2d4d-b4a2-48c4-b60d-16b9a187eb5a.jpg";
 
 const tracks = [
-  { id: 1, title: "ТЁМНАЯ ВОЛНА", album: "VOID.01", duration: "3:47", bpm: "138 BPM" },
-  { id: 2, title: "ХРОМ И КРОВЬ", album: "VOID.01", duration: "4:12", bpm: "142 BPM" },
-  { id: 3, title: "НУЛЕВОЙ МЕРИДИАН", album: "SIGNAL", duration: "5:03", bpm: "120 BPM" },
-  { id: 4, title: "ПОМЕХИ", album: "SIGNAL", duration: "3:29", bpm: "145 BPM" },
-  { id: 5, title: "РАСПАД", album: "SINGLE", duration: "4:55", bpm: "130 BPM" },
+  { id: 1, title: "Четыре стены", iframeSrc: "https://music.yandex.ru/iframe/album/39688145/track/146093003" },
+  { id: 2, title: "Кислород", iframeSrc: "https://music.yandex.ru/iframe/album/37601762/track/141420264" },
+  { id: 3, title: "Блять...", iframeSrc: "https://music.yandex.ru/iframe/album/41276956/track/149544686" },
+  { id: 4, title: "Балконная кровь", iframeSrc: "https://music.yandex.ru/iframe/album/37601762/track/141420266" },
+  { id: 5, title: "Грустный Демон", iframeSrc: "https://music.yandex.ru/iframe/album/37601762/track/141420261" },
 ];
 
 const events = [
@@ -243,23 +243,37 @@ export default function Index() {
 
           <div>
             {tracks.map((track, i) => (
-              <div key={track.id} className="track-row flex items-center gap-4 py-5 px-4 cursor-none"
-                onClick={() => setPlayingTrack(playingTrack === track.id ? null : track.id)}>
-                <div className="w-8 text-center font-mono-ibm text-xs flex items-center justify-center"
-                  style={{ color: "rgba(255,255,255,0.25)" }}>
-                  {playingTrack === track.id
-                    ? <Icon name="Pause" size={14} style={{ color: "var(--neon)" }} />
-                    : <span>{String(i + 1).padStart(2, "0")}</span>
-                  }
-                </div>
-                <div className="flex-1">
-                  <div className={`font-oswald text-xl font-medium tracking-wide ${playingTrack === track.id ? "neon-text" : "text-white"}`}>
-                    {track.title}
+              <div key={track.id}>
+                <div className="track-row flex items-center gap-4 py-5 px-4 cursor-none"
+                  onClick={() => setPlayingTrack(playingTrack === track.id ? null : track.id)}>
+                  <div className="w-8 text-center font-mono-ibm text-xs flex items-center justify-center"
+                    style={{ color: "rgba(255,255,255,0.25)" }}>
+                    {playingTrack === track.id
+                      ? <Icon name="ChevronUp" size={14} style={{ color: "var(--neon)" }} />
+                      : <span>{String(i + 1).padStart(2, "0")}</span>
+                    }
                   </div>
-                  <div className="font-mono-ibm text-xs mt-1" style={{ color: "rgba(255,255,255,0.28)" }}>{track.album}</div>
+                  <div className="flex-1 flex items-center gap-4">
+                    <Icon name={playingTrack === track.id ? "Pause" : "Play"} size={16}
+                      style={{ color: playingTrack === track.id ? "var(--neon)" : "rgba(255,255,255,0.3)" }} />
+                    <div className={`font-oswald text-xl font-medium tracking-wide ${playingTrack === track.id ? "neon-text" : "text-white"}`}>
+                      {track.title}
+                    </div>
+                  </div>
+                  <div className="font-mono-ibm text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+                    {playingTrack === track.id ? "— скрыть" : "слушать →"}
+                  </div>
                 </div>
-                <div className="font-mono-ibm text-xs hidden md:block" style={{ color: "rgba(255,255,255,0.2)" }}>{track.bpm}</div>
-                <div className="font-mono-ibm text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>{track.duration}</div>
+                {playingTrack === track.id && (
+                  <div className="px-4 pb-4" style={{ background: "rgba(176,48,255,0.04)", borderBottom: "1px solid rgba(176,48,255,0.2)" }}>
+                    <iframe
+                      frameBorder="0"
+                      allow="clipboard-write"
+                      style={{ border: "none", width: "100%", height: 244, display: "block" }}
+                      src={track.iframeSrc}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
