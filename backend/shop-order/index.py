@@ -30,7 +30,7 @@ def handler(event: dict, context) -> dict:
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT ci.product_id, ci.quantity, p.name, p.price, p.stock_left
+        SELECT ci.product_id, ci.quantity, p.name, p.price, p.stock_left, p.image_url
         FROM cart_items ci
         JOIN products p ON p.id = ci.product_id
         WHERE ci.session_id = %s
@@ -57,7 +57,7 @@ def handler(event: dict, context) -> dict:
     order_id = cur.fetchone()[0]
 
     for item in cart:
-        product_id, quantity, pname, price, stock_left = item
+        product_id, quantity, pname, price, stock_left, image_url = item
         cur.execute("INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (%s, %s, %s, %s)",
                     (order_id, product_id, quantity, price))
         if stock_left is not None:
@@ -79,7 +79,7 @@ def handler(event: dict, context) -> dict:
             if address: lines.append(f'📍 {address}')
             lines.append('')
             for item in cart:
-                _, qty, pname, price, _ = item
+                _, qty, pname, price, _, _ = item
                 lines.append(f'• {pname} × {qty} — {qty * price:,.0f} ₽'.replace(',', ' '))
             lines.append('')
             lines.append(f'💰 <b>Итого: {total:,.0f} ₽</b>'.replace(',', ' '))
@@ -91,15 +91,31 @@ def handler(event: dict, context) -> dict:
                     {'text': '❌ Отказать', 'callback_data': f'decline_{order_id}'}
                 ]]
             }
-            payload = json.dumps({
-                'chat_id': tg_chat,
-                'text': text,
-                'parse_mode': 'HTML',
-                'reply_markup': reply_markup
-            }).encode()
+
+            # Берём фото первого товара с изображением
+            photo_url = next((item[5] for item in cart if item[5]), None)
+
+            if photo_url:
+                tg_payload = json.dumps({
+                    'chat_id': tg_chat,
+                    'photo': photo_url,
+                    'caption': text,
+                    'parse_mode': 'HTML',
+                    'reply_markup': reply_markup
+                }).encode()
+                tg_method = 'sendPhoto'
+            else:
+                tg_payload = json.dumps({
+                    'chat_id': tg_chat,
+                    'text': text,
+                    'parse_mode': 'HTML',
+                    'reply_markup': reply_markup
+                }).encode()
+                tg_method = 'sendMessage'
+
             req = urllib.request.Request(
-                f'https://api.telegram.org/bot{tg_token}/sendMessage',
-                data=payload,
+                f'https://api.telegram.org/bot{tg_token}/{tg_method}',
+                data=tg_payload,
                 headers={'Content-Type': 'application/json'},
                 method='POST'
             )

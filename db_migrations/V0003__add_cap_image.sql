@@ -1,0 +1,1 @@
+UPDATE t_p85200160_deep_obsidian_projec.products SET image_url = 'https://cdn.poehali.dev/projects/a00ce720-a256-43b5-bf17-65d283f28886/files/25108873-10a4-4aa1-871a-aa1de778d0fc.jpg' WHERE id = 3;
