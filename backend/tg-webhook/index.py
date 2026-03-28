@@ -17,7 +17,8 @@ MERCH_LIST = '\n'.join([f'  /stock {code} N — {name}' for code, (_, name) in M
 HELP_TEXT = (
     '📦 Мерч:\n'
     + MERCH_LIST +
-    '\n/stock_info — остатки\n\n'
+    '\n/stock_info — остатки\n'
+    '/coming_soon — управление товарами "скоро будет"\n\n'
     '🎤 Концерты:\n'
     '/events — список концертов с ID\n'
     '/event_add ДАТА ГОРОД ПЛОЩАДКА СТАТУС — добавить\n'
@@ -125,16 +126,18 @@ def handler(event: dict, context) -> dict:
     if text == '/stock_info':
         conn = db_connect()
         cur = conn.cursor()
-        cur.execute("SELECT id, name, stock_left FROM products ORDER BY id")
+        cur.execute("SELECT id, name, stock_left, coming_soon FROM products ORDER BY id")
         rows = cur.fetchall()
         cur.close()
         conn.close()
         db_to_code = {db_id: code for code, (db_id, _) in MERCH_MAP.items()}
         lines = ['📦 Текущие остатки:\n']
-        for row_id, name, stock_left in rows:
-            code = db_to_code.get(row_id, '?')
-            qty = '∞' if stock_left is None else str(stock_left)
-            lines.append(f'[{code}] {name} — {qty} шт')
+        for row_id, name, stock_left, coming_soon in rows:
+            if coming_soon:
+                lines.append(f'[{db_to_code.get(row_id, "?")}] {name} — ⏳ СКОРО БУДЕТ')
+            else:
+                qty = '∞' if stock_left is None else str(stock_left)
+                lines.append(f'[{db_to_code.get(row_id, "?")}] {name} — {qty} шт')
         send_message(token, chat_id, '\n'.join(lines))
         return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
 
@@ -159,11 +162,120 @@ def handler(event: dict, context) -> dict:
         db_id, merch_name = MERCH_MAP[merch_code]
         conn = db_connect()
         cur = conn.cursor()
-        cur.execute("UPDATE products SET stock_left = %s WHERE id = %s", (qty, db_id))
+        # Снимаем флаг coming_soon, если устанавливаем количество
+        cur.execute("UPDATE products SET stock_left = %s, coming_soon = false WHERE id = %s", (qty, db_id))
         conn.commit()
         cur.close()
         conn.close()
-        send_message(token, chat_id, f'✅ {merch_name} — остаток: {qty} шт')
+        send_message(token, chat_id, f'✅ {merch_name} — остаток: {qty} шт (товар доступен для продажи)')
+        return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+
+    # ─── НОВАЯ КОМАНДА: УПРАВЛЕНИЕ "СКОРО БУДЕТ" ───
+    if text.startswith('/coming_soon'):
+        parts = text.split()
+        
+        # /coming_soon list — список товаров со статусом
+        if len(parts) == 2 and parts[1] == 'list':
+            conn = db_connect()
+            cur = conn.cursor()
+            cur.execute("SELECT id, name, coming_soon, release_date FROM products ORDER BY id")
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            db_to_code = {db_id: code for code, (db_id, _) in MERCH_MAP.items()}
+            lines = ['⏳ Товары "Скоро будет":\n']
+            for row_id, name, coming_soon, release_date in rows:
+                code = db_to_code.get(row_id, '?')
+                status = '🔮 СКОРО' if coming_soon else '✅ В ПРОДАЖЕ'
+                date_str = f' — {release_date}' if release_date else ''
+                lines.append(f'[{code}] {name}: {status}{date_str}')
+            send_message(token, chat_id, '\n'.join(lines))
+            return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+        
+        # /coming_soon enable <code> [дата] — включить режим "скоро будет"
+        if len(parts) >= 3 and parts[1] == 'enable':
+            try:
+                merch_code = int(parts[2])
+            except ValueError:
+                send_message(token, chat_id, '❌ Код товара должен быть числом')
+                return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+            
+            if merch_code not in MERCH_MAP:
+                send_message(token, chat_id, f'❌ Неверный код. Доступные: {", ".join(str(c) for c in MERCH_MAP)}')
+                return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+            
+            release_date = None
+            if len(parts) >= 4:
+                release_date = parts[3]
+            
+            db_id, merch_name = MERCH_MAP[merch_code]
+            conn = db_connect()
+            cur = conn.cursor()
+            if release_date:
+                cur.execute("UPDATE products SET coming_soon = true, release_date = %s, stock_left = NULL WHERE id = %s", (release_date, db_id))
+                send_message(token, chat_id, f'✅ {merch_name} — включён режим "СКОРО БУДЕТ" (релиз: {release_date})')
+            else:
+                cur.execute("UPDATE products SET coming_soon = true, release_date = NULL, stock_left = NULL WHERE id = %s", (db_id,))
+                send_message(token, chat_id, f'✅ {merch_name} — включён режим "СКОРО БУДЕТ"')
+            conn.commit()
+            cur.close()
+            conn.close()
+            return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+        
+        # /coming_soon disable <code> — выключить режим "скоро будет" (товар становится доступным)
+        if len(parts) == 3 and parts[1] == 'disable':
+            try:
+                merch_code = int(parts[2])
+            except ValueError:
+                send_message(token, chat_id, '❌ Код товара должен быть числом')
+                return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+            
+            if merch_code not in MERCH_MAP:
+                send_message(token, chat_id, f'❌ Неверный код. Доступные: {", ".join(str(c) for c in MERCH_MAP)}')
+                return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+            
+            db_id, merch_name = MERCH_MAP[merch_code]
+            conn = db_connect()
+            cur = conn.cursor()
+            cur.execute("UPDATE products SET coming_soon = false, release_date = NULL WHERE id = %s", (db_id,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            send_message(token, chat_id, f'✅ {merch_name} — режим "СКОРО БУДЕТ" отключён. Не забудь установить остаток: /stock {merch_code} N')
+            return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+        
+        # /coming_soon date <code> <дата> — изменить дату релиза
+        if len(parts) >= 4 and parts[1] == 'date':
+            try:
+                merch_code = int(parts[2])
+                release_date = parts[3]
+            except ValueError:
+                send_message(token, chat_id, '❌ Код товара должен быть числом')
+                return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+            
+            if merch_code not in MERCH_MAP:
+                send_message(token, chat_id, f'❌ Неверный код. Доступные: {", ".join(str(c) for c in MERCH_MAP)}')
+                return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+            
+            db_id, merch_name = MERCH_MAP[merch_code]
+            conn = db_connect()
+            cur = conn.cursor()
+            cur.execute("UPDATE products SET release_date = %s WHERE id = %s", (release_date, db_id))
+            conn.commit()
+            cur.close()
+            conn.close()
+            send_message(token, chat_id, f'✅ {merch_name} — дата релиза установлена: {release_date}')
+            return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+        
+        # Если команда введена неправильно
+        send_message(token, chat_id, 
+            '📦 Управление "Скоро будет":\n\n'
+            '/coming_soon list — список всех товаров\n'
+            '/coming_soon enable 101 2026-04-15 — включить режим (с датой)\n'
+            '/coming_soon enable 101 — включить режим (без даты)\n'
+            '/coming_soon disable 101 — выключить режим\n'
+            '/coming_soon date 101 2026-04-20 — изменить дату релиза')
         return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
 
     # /events — список концертов
@@ -236,7 +348,6 @@ def handler(event: dict, context) -> dict:
 
     # /event_add ДАТА ГОРОД ПЛОЩАДКА СТАТУС
     if text.startswith('/event_add '):
-        # Формат: /event_add 2026-06-01 НОВОСИБИРСК Подземка ДОСТУПНЫ БИЛЕТЫ
         rest = text[len('/event_add '):].strip()
         parts = rest.split(None, 3)
         if len(parts) < 3:
