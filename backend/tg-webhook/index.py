@@ -11,7 +11,7 @@ MERCH_MAP = {
     104: (4, 'DISORDER PACK'),
 }
 
-ALLOWED_USERNAMES = ['flaskiy', 'fuckgenaa']
+ALLOWED_USERNAME = 'flaskiy'
 
 MERCH_LIST = '\n'.join([f'  /stock {code} N — {name}' for code, (_, name) in MERCH_MAP.items()])
 HELP_TEXT = (
@@ -112,7 +112,7 @@ def handler(event: dict, context) -> dict:
     username = (from_user.get('username') or '').lower()
     text = (message.get('text') or '').strip()
 
-    if username not in ALLOWED_USERNAMES:
+    if username != ALLOWED_USERNAME:
         send_message(token, chat_id, '🚫 Нет доступа')
         return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
 
