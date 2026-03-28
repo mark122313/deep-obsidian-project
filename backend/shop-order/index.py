@@ -92,34 +92,45 @@ def handler(event: dict, context) -> dict:
                 ]]
             }
 
-            # Берём фото первого товара с изображением
-            photo_url = next((item[5] for item in cart if item[5]), None)
+            def tg_request(method, payload):
+                req = urllib.request.Request(
+                    f'https://api.telegram.org/bot{tg_token}/{method}',
+                    data=json.dumps(payload).encode(),
+                    headers={'Content-Type': 'application/json'},
+                    method='POST'
+                )
+                urllib.request.urlopen(req, timeout=5)
 
-            if photo_url:
-                tg_payload = json.dumps({
-                    'chat_id': tg_chat,
-                    'photo': photo_url,
-                    'caption': text,
-                    'parse_mode': 'HTML',
-                    'reply_markup': reply_markup
-                }).encode()
-                tg_method = 'sendPhoto'
-            else:
-                tg_payload = json.dumps({
+            photos = [item[5] for item in cart if item[5]]
+
+            if len(photos) >= 2:
+                # Медиагруппа — все фото без подписи
+                media = [{'type': 'photo', 'media': url} for url in photos]
+                tg_request('sendMediaGroup', {'chat_id': tg_chat, 'media': media})
+                # Отдельным сообщением — текст с кнопками
+                tg_request('sendMessage', {
                     'chat_id': tg_chat,
                     'text': text,
                     'parse_mode': 'HTML',
                     'reply_markup': reply_markup
-                }).encode()
-                tg_method = 'sendMessage'
-
-            req = urllib.request.Request(
-                f'https://api.telegram.org/bot{tg_token}/{tg_method}',
-                data=tg_payload,
-                headers={'Content-Type': 'application/json'},
-                method='POST'
-            )
-            urllib.request.urlopen(req, timeout=5)
+                })
+            elif len(photos) == 1:
+                # Одно фото с подписью и кнопками
+                tg_request('sendPhoto', {
+                    'chat_id': tg_chat,
+                    'photo': photos[0],
+                    'caption': text,
+                    'parse_mode': 'HTML',
+                    'reply_markup': reply_markup
+                })
+            else:
+                # Без фото
+                tg_request('sendMessage', {
+                    'chat_id': tg_chat,
+                    'text': text,
+                    'parse_mode': 'HTML',
+                    'reply_markup': reply_markup
+                })
     except Exception:
         pass
 
