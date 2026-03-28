@@ -3,13 +3,16 @@ import Icon from "@/components/ui/icon";
 
 const ARTIST_IMG = "https://cdn.poehali.dev/projects/a00ce720-a256-43b5-bf17-65d283f28886/files/fac367a0-4036-452d-921f-35c92c86b9ed.jpg";
 const CONCERT_IMG = "https://cdn.poehali.dev/projects/a00ce720-a256-43b5-bf17-65d283f28886/files/3cd156d9-b001-4dd8-aeb8-c7a385d55d23.jpg";
+const EVENTS_URL = "https://functions.poehali.dev/f4fdaaee-217c-4ca3-8cfa-bc8c7aaeaf7b";
 
-const events = [
-  { date: "12 Apr 2026", dateLabel: "12 АПР 2026", city: "МОСКВА", venue: "Клуб TMNL", status: "ДОСТУПНЫ БИЛЕТЫ", coords: "55.7558° N, 37.6173° E" },
-  { date: "19 Apr 2026", dateLabel: "19 АПР 2026", city: "САНКТ-ПЕТЕРБУРГ", venue: "AURORA", status: "FEW LEFT", coords: "59.9343° N, 30.3351° E" },
-  { date: "03 May 2026", dateLabel: "03 МАЙ 2026", city: "ЕКАТЕРИНБУРГ", venue: "Teleclub", status: "ДОСТУПНЫ БИЛЕТЫ", coords: "56.8389° N, 60.6057° E" },
-  { date: "17 May 2026", dateLabel: "17 МАЙ 2026", city: "КАЗАНЬ", venue: "URBAN", status: "СКОРО", coords: "55.7887° N, 49.1221° E" },
-];
+interface EventItem {
+  id: number;
+  date: string;
+  city: string;
+  venue: string;
+  status: string;
+  city_blur: boolean;
+}
 
 function CountdownTimer({ targetDate }: { targetDate: string }) {
   const [time, setTime] = useState({ d: "00", h: "00", m: "00", s: "00" });
@@ -47,7 +50,21 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
   );
 }
 
+function formatDateLabel(dateStr: string) {
+  const months = ["ЯНВ","ФЕВ","МАР","АПР","МАЙ","ИЮН","ИЮЛ","АВГ","СЕН","ОКТ","НОЯ","ДЕК"];
+  const d = new Date(dateStr);
+  return `${String(d.getDate()).padStart(2,"0")} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export default function EventsAboutContacts() {
+  const [events, setEvents] = useState<EventItem[]>([]);
+
+  useEffect(() => {
+    fetch(EVENTS_URL)
+      .then(r => r.json())
+      .then(data => setEvents(data.events || []));
+  }, []);
+
   return (
     <>
       {/* ─── АФИША ─── */}
@@ -64,23 +81,26 @@ export default function EventsAboutContacts() {
           </div>
 
           <div className="flex flex-col gap-3">
-            {events.map((ev, i) => (
-              <div key={i} className="event-row px-6 py-5"
+            {events.map((ev) => (
+              <div key={ev.id} className="event-row px-6 py-5"
                 style={{ background: "rgba(255,255,255,0.02)" }}>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-6">
-                    <div className="font-mono-ibm text-xs w-24 shrink-0" style={{ color: "var(--neon)", filter: "blur(5px)", userSelect: "none" }}>
-                      {ev.dateLabel}
+                    <div className="font-mono-ibm text-xs w-32 shrink-0" style={{ color: "var(--neon)" }}>
+                      {formatDateLabel(ev.date)}
                     </div>
                     <div>
-                      <div className="font-oswald text-white text-xl font-bold" style={{ filter: "blur(6px)", userSelect: "none" }}>{ev.city}</div>
-                      <div className="font-mono-ibm text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)", filter: "blur(4px)", userSelect: "none" }}>{ev.venue}</div>
+                      <div className="font-oswald text-white text-xl font-bold"
+                        style={ev.city_blur ? { filter: "blur(6px)", userSelect: "none" } : {}}>
+                        {ev.city}
+                      </div>
+                      <div className="font-mono-ibm text-xs mt-1"
+                        style={{ color: "rgba(255,255,255,0.3)", ...(ev.city_blur ? { filter: "blur(4px)", userSelect: "none" } : {}) }}>
+                        {ev.venue}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 flex-wrap">
-                    <div className="font-mono-ibm text-xs hidden lg:block" style={{ color: "rgba(255,255,255,0.18)" }}>
-                      {ev.coords}
-                    </div>
                     <CountdownTimer targetDate={ev.date} />
                     <div className="font-mono-ibm text-xs px-3 py-1"
                       style={{
