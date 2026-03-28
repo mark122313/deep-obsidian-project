@@ -17,8 +17,7 @@ MERCH_LIST = '\n'.join([f'  /stock {code} N — {name}' for code, (_, name) in M
 HELP_TEXT = (
     '📦 Мерч:\n'
     + MERCH_LIST +
-    '\n/stock_info — остатки\n'
-    '/coming_soon — управление товарами "скоро будет"\n\n'
+    '\n/stock_info — остатки\n\n'
     '🎤 Концерты:\n'
     '/events — список концертов с ID\n'
     '/event_add ДАТА ГОРОД ПЛОЩАДКА СТАТУС — добавить\n'
@@ -126,18 +125,16 @@ def handler(event: dict, context) -> dict:
     if text == '/stock_info':
         conn = db_connect()
         cur = conn.cursor()
-        cur.execute("SELECT id, name, stock_left, coming_soon FROM products ORDER BY id")
+        cur.execute("SELECT id, name, stock_left FROM products ORDER BY id")
         rows = cur.fetchall()
         cur.close()
         conn.close()
         db_to_code = {db_id: code for code, (db_id, _) in MERCH_MAP.items()}
         lines = ['📦 Текущие остатки:\n']
-        for row_id, name, stock_left, coming_soon in rows:
-            if coming_soon:
-                lines.append(f'[{db_to_code.get(row_id, "?")}] {name} — ⏳ СКОРО БУДЕТ')
-            else:
-                qty = '∞' if stock_left is None else str(stock_left)
-                lines.append(f'[{db_to_code.get(row_id, "?")}] {name} — {qty} шт')
+        for row_id, name, stock_left in rows:
+            code = db_to_code.get(row_id, '?')
+            qty = '∞' if stock_left is None else str(stock_left)
+            lines.append(f'[{code}] {name} — {qty} шт')
         send_message(token, chat_id, '\n'.join(lines))
         return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
 
@@ -162,70 +159,105 @@ def handler(event: dict, context) -> dict:
         db_id, merch_name = MERCH_MAP[merch_code]
         conn = db_connect()
         cur = conn.cursor()
-        # Снимаем флаг coming_soon, если устанавливаем количество
-        cur.execute("UPDATE products SET stock_left = %s, coming_soon = false WHERE id = %s", (qty, db_id))
+        cur.execute("UPDATE products SET stock_left = %s WHERE id = %s", (qty, db_id))
         conn.commit()
         cur.close()
         conn.close()
-        send_message(token, chat_id, f'✅ {merch_name} — остаток: {qty} шт (товар доступен для продажи)')
+        send_message(token, chat_id, f'✅ {merch_name} — остаток: {qty} шт')
         return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
 
-    # ─── НОВАЯ КОМАНДА: УПРАВЛЕНИЕ "СКОРО БУДЕТ" ───
-    if text.startswith('/coming_soon'):
+    # /events — список концертов
+    if text == '/events':
+        conn = db_connect()
+        cur = conn.cursor()
+        cur.execute("SELECT id, date, city, venue, status, city_blur FROM events ORDER BY sort_order, date")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        if not rows:
+            send_message(token, chat_id, 'Концертов нет')
+            return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+        lines = ['🎤 Концерты:\n']
+        for r in rows:
+            blur_mark = '🔵 блюр' if r[5] else '👁 виден'
+            lines.append(f'[ID:{r[0]}] {r[1]} — {r[2]} ({r[3]}) — {r[4]} — {blur_mark}')
+        send_message(token, chat_id, '\n'.join(lines))
+        return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+
+    # /event_blur ID и /event_unblur ID
+    if text.startswith('/event_blur ') or text.startswith('/event_unblur '):
         parts = text.split()
-        
-        # /coming_soon list — список товаров со статусом
-        if len(parts) == 2 and parts[1] == 'list':
-            conn = db_connect()
-            cur = conn.cursor()
-            cur.execute("SELECT id, name, coming_soon, release_date FROM products ORDER BY id")
-            rows = cur.fetchall()
-            cur.close()
-            conn.close()
-            
-            db_to_code = {db_id: code for code, (db_id, _) in MERCH_MAP.items()}
-            lines = ['⏳ Товары "Скоро будет":\n']
-            for row_id, name, coming_soon, release_date in rows:
-                code = db_to_code.get(row_id, '?')
-                status = '🔮 СКОРО' if coming_soon else '✅ В ПРОДАЖЕ'
-                date_str = f' — {release_date}' if release_date else ''
-                lines.append(f'[{code}] {name}: {status}{date_str}')
-            send_message(token, chat_id, '\n'.join(lines))
+        if len(parts) != 2:
+            send_message(token, chat_id, '❌ Формат: /event_blur 1 или /event_unblur 1')
             return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
-        
-        # /coming_soon enable <code> [дата] — включить режим "скоро будет"
-        if len(parts) >= 3 and parts[1] == 'enable':
-            try:
-                merch_code = int(parts[2])
-            except ValueError:
-                send_message(token, chat_id, '❌ Код товара должен быть числом')
-                return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
-            
-            if merch_code not in MERCH_MAP:
-                send_message(token, chat_id, f'❌ Неверный код. Доступные: {", ".join(str(c) for c in MERCH_MAP)}')
-                return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
-            
-            release_date = None
-            if len(parts) >= 4:
-                release_date = parts[3]
-            
-            db_id, merch_name = MERCH_MAP[merch_code]
-            conn = db_connect()
-            cur = conn.cursor()
-            if release_date:
-                cur.execute("UPDATE products SET coming_soon = true, release_date = %s, stock_left = NULL WHERE id = %s", (release_date, db_id))
-                send_message(token, chat_id, f'✅ {merch_name} — включён режим "СКОРО БУДЕТ" (релиз: {release_date})')
-            else:
-                cur.execute("UPDATE products SET coming_soon = true, release_date = NULL, stock_left = NULL WHERE id = %s", (db_id,))
-                send_message(token, chat_id, f'✅ {merch_name} — включён режим "СКОРО БУДЕТ"')
-            conn.commit()
-            cur.close()
-            conn.close()
+        try:
+            ev_id = int(parts[1])
+        except ValueError:
+            send_message(token, chat_id, '❌ ID должен быть числом')
             return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
-        
-        # /coming_soon disable <code> — выключить режим "скоро будет" (товар становится доступным)
-        if len(parts) == 3 and parts[1] == 'disable':
-            try:
-                merch_code = int(parts[2])
-            except ValueError:
-                send_message(token, chat_id, '❌ Код товара должен быть числом
+        blur_val = text.startswith('/event_blur ')
+        conn = db_connect()
+        cur = conn.cursor()
+        cur.execute("UPDATE events SET city_blur = %s WHERE id = %s RETURNING city", (blur_val, ev_id))
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        if not row:
+            send_message(token, chat_id, f'❌ Концерт с ID {ev_id} не найден')
+        else:
+            action_word = 'включён 🔵' if blur_val else 'убран 👁'
+            send_message(token, chat_id, f'✅ {row[0]} — блюр города {action_word}')
+        return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+
+    # /event_del ID
+    if text.startswith('/event_del '):
+        parts = text.split()
+        if len(parts) != 2:
+            send_message(token, chat_id, '❌ Формат: /event_del 1')
+            return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+        try:
+            ev_id = int(parts[1])
+        except ValueError:
+            send_message(token, chat_id, '❌ ID должен быть числом')
+            return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+        conn = db_connect()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM events WHERE id = %s RETURNING city, date", (ev_id,))
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        if not row:
+            send_message(token, chat_id, f'❌ Концерт с ID {ev_id} не найден')
+        else:
+            send_message(token, chat_id, f'🗑 Концерт удалён: {row[0]} {row[1]}')
+        return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+
+    # /event_add ДАТА ГОРОД ПЛОЩАДКА СТАТУС
+    if text.startswith('/event_add '):
+        # Формат: /event_add 2026-06-01 НОВОСИБИРСК Подземка ДОСТУПНЫ БИЛЕТЫ
+        rest = text[len('/event_add '):].strip()
+        parts = rest.split(None, 3)
+        if len(parts) < 3:
+            send_message(token, chat_id, '❌ Формат: /event_add 2026-06-01 ГОРОД ПЛОЩАДКА СТАТУС\nСтатус необязателен')
+            return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+        date_str = parts[0]
+        city = parts[1].upper()
+        venue = parts[2]
+        status = parts[3].strip('"\'') if len(parts) > 3 else 'ДОСТУПНЫ БИЛЕТЫ'
+        conn = db_connect()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO events (date, city, venue, status, city_blur, sort_order) VALUES (%s, %s, %s, %s, true, (SELECT COALESCE(MAX(sort_order),0)+1 FROM events)) RETURNING id",
+            (date_str, city, venue, status)
+        )
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        send_message(token, chat_id, f'✅ Концерт добавлен [ID:{new_id}]\n{date_str} — {city} ({venue}) — {status}\nГород скрыт (блюр). Убери: /event_unblur {new_id}')
+        return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
+
+    send_message(token, chat_id, HELP_TEXT)
+    return {'statusCode': 200, 'headers': {'Access-Control-Allow-Origin': '*'}, 'body': 'ok'}
